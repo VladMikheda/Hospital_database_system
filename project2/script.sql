@@ -82,6 +82,16 @@ CREATE TABLE NURSES
     CONSTRAINT FK_id_department FOREIGN KEY (department) REFERENCES DEPARTMENTS (abbreviation)
 );
 
+CREATE TABLE DOCTORS_DEPARTMENTS
+(
+    doctor_id    INTEGER,
+    abbreviation CHAR(4),
+
+    CONSTRAINT PK_doc_depart PRIMARY KEY (doctor_id, abbreviation),
+    CONSTRAINT FK_id_doctor_dep FOREIGN KEY (doctor_id) REFERENCES DOCTORS (id),
+    CONSTRAINT FK_abbreviation_department FOREIGN KEY (abbreviation) REFERENCES DEPARTMENTS (abbreviation)
+);
+
 CREATE TABLE HOSPITALIZATIONS
 (
     id         INTEGER GENERATED ALWAYS as IDENTITY (START WITH 1 INCREMENT BY 1) PRIMARY KEY,
@@ -94,8 +104,8 @@ CREATE TABLE HOSPITALIZATIONS
 
 
     CONSTRAINT FK_id_patient FOREIGN KEY (patient_id) REFERENCES PATIENTS (id),
-    CONSTRAINT FK_id_doc FOREIGN KEY (doctor_id) REFERENCES DOCTORS (id),
-    CONSTRAINT FK_id_hospitalization_department FOREIGN KEY (department) REFERENCES DEPARTMENTS (abbreviation)
+--     CONSTRAINT FK_id_doc FOREIGN KEY (doctor_id) REFERENCES DOCTORS (id),
+    CONSTRAINT FK_id_hospitalization_department FOREIGN KEY (department,doctor_id) REFERENCES DOCTORS_DEPARTMENTS(abbreviation,doctor_id)
 );
 
 CREATE TABLE NURSES_PATIENTS
@@ -106,16 +116,6 @@ CREATE TABLE NURSES_PATIENTS
     CONSTRAINT PK_nurse_patient PRIMARY KEY (nurse_id, id_hospitalization),
     CONSTRAINT FK_id_nurse FOREIGN KEY (nurse_id) REFERENCES NURSES (id),
     CONSTRAINT FK_id_hospitalization FOREIGN KEY (id_hospitalization) REFERENCES HOSPITALIZATIONS (id)
-);
-
-CREATE TABLE DOCTORS_DEPARTMENTS
-(
-    doctor_id    INTEGER,
-    abbreviation CHAR(4),
-
-    CONSTRAINT PK_doc_depart PRIMARY KEY (doctor_id, abbreviation),
-    CONSTRAINT FK_id_doctor_dep FOREIGN KEY (doctor_id) REFERENCES DOCTORS (id),
-    CONSTRAINT FK_abbreviation_department FOREIGN KEY (abbreviation) REFERENCES DEPARTMENTS (abbreviation)
 );
 
 CREATE TABLE INSPECTIONS_DESC
