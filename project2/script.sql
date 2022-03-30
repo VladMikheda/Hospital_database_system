@@ -41,7 +41,8 @@ CREATE TABLE EMPLOYEES
     first_name   CHAR(255)   NOT NULL,
     family_name  CHAR(255)   NOT NULL,
 
-    CONSTRAINT check_birth_id CHECK (REGEXP_LIKE(birth_number,
+    CONSTRAINT AK_birth_num_empl UNIQUE (birth_number),
+    CONSTRAINT Check_birth_id CHECK (REGEXP_LIKE(birth_number,
                                                  '^[0-9]{2}?([025][1-9]|[136][0-2])?(0[1-9]|[12][0-9]|3[0-1])?\/?[0-9]{3,4}$'))
 );
 
