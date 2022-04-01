@@ -1,3 +1,13 @@
+/**
+  * Project: Návrh a implementace relační databáze
+  *
+  * File: xmikhe00_xkarev00.sql
+  * Subject: IDS 2022
+  *
+  *@author: Vladislav Mikheda xmikhe00
+  *@author: Denis Karev xkarev00
+ */
+
 DROP TABLE DEPARTMENTS CASCADE CONSTRAINTS;
 DROP TABLE PATIENTS CASCADE CONSTRAINTS;
 DROP TABLE EMPLOYEES CASCADE CONSTRAINTS;
