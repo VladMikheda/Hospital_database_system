@@ -240,6 +240,8 @@ INSERT INTO INSPECTIONS (ID_PATIENT, ABBREVIATION, DATE_INSPECT, DESCRIPTION)
 VALUES (2, 'UZBR', TO_DATE('2022-04-13 07:00:00', 'YYYY-MM-DD HH24:MI:SS'), NULL);
 INSERT INTO INSPECTIONS (ID_PATIENT, ABBREVIATION, DATE_INSPECT, DESCRIPTION)
 VALUES (2, 'KRGL', TO_DATE('2022-04-14 08:00:00', 'YYYY-MM-DD HH24:MI:SS'), 'Hladina glukózy v krvi je normální');
+INSERT INTO INSPECTIONS (ID_PATIENT, ABBREVIATION, DATE_INSPECT)
+VALUES (2, 'KRBI', TO_DATE('2022-04-18 09:00:00', 'YYYY-MM-DD HH24:MI:SS'));
 
 INSERT INTO DRUGS (ABBREVIATION, NAME, ACTIVE_DOSE, MAXIMAL_DOSE, APPLICATION_FORM, CONTRAINDICATIONS, STRENGTH,
                    MANUFACTURER)
@@ -255,7 +257,7 @@ VALUES ('NOSA', 2, 'Ráno,Večer', '2/den', '40mg');
 
 
 --Select
-/** Dva dotazy využívající spojení dvou tabulek (1,2) */
+--  Dva dotazy využívající spojení dvou tabulek (1,2)
 
 /**
  *Otazka: Na kolika odděleních pracuje lékař s rodným číslem
@@ -275,7 +277,7 @@ FROM PATIENTS P JOIN HOSPITALIZATIONS H ON P.ID = H.PATIENT_ID
 WHERE P.BIRTH_NUMBER = '481016/123';
 
 
-/** Jeden využívající spojení tří tabulek (3) */
+-- Jeden využívající spojení tří tabulek (3)
 
 /**
  *Otazka: Jaké vyšetření absolvoval pacient s rodným číslem, ktery byl hospitalizován (datum) (Jméno, Příjmení, Datum, Nazev, Popis)
@@ -293,7 +295,7 @@ SELECT abbreviation as nazev, app_time as doba_podovani, app_frequency as davka
 FROM PATIENTS P JOIN HOSPITALIZATIONS H ON P.ID = H.PATIENT_ID JOIN DRUG_PRESCRIPTIONS DP ON H.id = DP.id_hospitalization
 WHERE birth_number = '481016/123' AND TO_CHAR(date_hosp, 'YYYY-MM-DD') = '2019-03-25';
 
-/** Dva dotazy s klauzulí GROUP BY a agregační funkcí (4,5) */
+-- Dva dotazy s klauzulí GROUP BY a agregační funkcí (4,5)
 
 /**
  *Otazka: Kolik pacientů v nemocnice dostane lék s názvem (název_léku, číslo)
@@ -309,14 +311,27 @@ GROUP BY DP.ABBREVIATION;
  *Vyuzite: Zjistěte, kolik míst je na oddělení k dispozici
  */
 SELECT name AS nazev, bed_number - patient_number AS pocet_volnych_mist
-FROM ( SELECT abbreviation,COUNT(patient_id) - COUNT(date_disch) AS patient_number
-FROM HOSPITALIZATIONS H RIGHT JOIN DEPARTMENTS D ON H.department = D.abbreviation
-GROUP BY abbreviation, date_disch) NP RIGHT JOIN DEPARTMENTS DE ON NP.abbreviation = DE.ABBREVIATION;
+FROM    (
+            SELECT abbreviation,COUNT(patient_id) - COUNT(date_disch) AS patient_number
+            FROM HOSPITALIZATIONS H RIGHT JOIN DEPARTMENTS D ON H.department = D.abbreviation
+            GROUP BY abbreviation, date_disch
+        ) NP RIGHT JOIN DEPARTMENTS DE ON NP.abbreviation = DE.ABBREVIATION;
 
--- todo
-/** Jeden dotaz obsahující predikát EXISTS (6) */
---todo
-/** Jeden dotaz s predikátem IN s vnořeným selectem (7) */
+
+-- Jeden dotaz obsahující predikát EXISTS (6)
+
+/**
+ *Otazka: Seznam pacientů objednaných na vyšetření(zkratka) na tenhle datum(datum)
+ *Vyuzite: Diagnostik může zjistit, které pacienty bude mít na vyšetření
+ */
+SELECT first_name AS jmeno, family_name AS prijmeni, department as oddeleni, diagnosis as diagnoza
+FROM PATIENTS JOIN HOSPITALIZATIONS ON PATIENTS.id = HOSPITALIZATIONS.patient_id
+WHERE EXISTS(SELECT *
+             FROM INSPECTIONS
+             WHERE TO_CHAR(date_inspect,'YYYY-MM-DD') ='2022-04-18' AND abbreviation = 'KRBI' AND PATIENTS.id = INSPECTIONS.id_patient
+    )
+
+-- Jeden dotaz s predikátem IN s vnořeným selectem (7)
 --todo
 
 
