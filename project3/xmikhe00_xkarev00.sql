@@ -304,8 +304,19 @@ FROM HOSPITALIZATIONS H JOIN DRUG_PRESCRIPTIONS DP ON H.id = DP.id_hospitalizati
 WHERE date_disch is null
 GROUP BY DP.ABBREVIATION;
 
+/**
+ *Otazka: Kolik míst je k dispozici v každém oddělení
+ *Vyuzite: Zjistěte, kolik míst je na oddělení k dispozici
+ */
+SELECT name AS nazev, bed_number - patient_number AS pocet_volnych_mist
+FROM ( SELECT abbreviation,COUNT(patient_id) - COUNT(date_disch) AS patient_number
+FROM HOSPITALIZATIONS H RIGHT JOIN DEPARTMENTS D ON H.department = D.abbreviation
+GROUP BY abbreviation, date_disch) NP RIGHT JOIN DEPARTMENTS DE ON NP.abbreviation = DE.ABBREVIATION;
+
 -- todo
 /** Jeden dotaz obsahující predikát EXISTS (6) */
 --todo
 /** Jeden dotaz s predikátem IN s vnořeným selectem (7) */
 --todo
+
+
