@@ -117,7 +117,7 @@ CREATE TABLE HOSPITALIZATIONS
 
     CONSTRAINT FK_id_patient FOREIGN KEY (patient_id) REFERENCES PATIENTS (id),
 --     CONSTRAINT FK_id_doc FOREIGN KEY (doctor_id) REFERENCES DOCTORS (id),
-    CONSTRAINT FK_id_hospitalization_department FOREIGN KEY (department,doctor_id) REFERENCES DOCTORS_DEPARTMENTS(abbreviation,doctor_id)
+    CONSTRAINT FK_id_hospitalization_department FOREIGN KEY (department, doctor_id) REFERENCES DOCTORS_DEPARTMENTS (abbreviation, doctor_id)
 );
 
 CREATE TABLE NURSES_PATIENTS
@@ -163,12 +163,12 @@ CREATE TABLE DRUGS
 
 CREATE TABLE DRUG_PRESCRIPTIONS
 (
-    id            INTEGER GENERATED ALWAYS as IDENTITY (START WITH 1 INCREMENT BY 1) PRIMARY KEY,
-    abbreviation  CHAR(4),
-    id_hospitalization    INTEGER NOT NULL,
-    app_time      VARCHAR(50),
-    app_frequency VARCHAR(50),
-    dose          CHAR(6) NOT NULL,
+    id                 INTEGER GENERATED ALWAYS as IDENTITY (START WITH 1 INCREMENT BY 1) PRIMARY KEY,
+    abbreviation       CHAR(4),
+    id_hospitalization INTEGER NOT NULL,
+    app_time           VARCHAR(50),
+    app_frequency      VARCHAR(50),
+    dose               CHAR(6) NOT NULL,
 
     CONSTRAINT FK_id_hosp_drug FOREIGN KEY (id_hospitalization) REFERENCES HOSPITALIZATIONS (id),
     CONSTRAINT FK_abbreviation_drug FOREIGN KEY (abbreviation) REFERENCES DRUGS (abbreviation)
@@ -217,8 +217,9 @@ VALUES ('1201411234', 'David', 'Černý', '481016/123', '+420123456789', 'Brno',
 INSERT INTO PATIENTS (INSURANCE_NUM, FIRST_NAME, FAMILY_NAME, BIRTH_NUMBER, PHONE_NUMBER, CITY, STREET, HOUSE)
 VALUES ('1205211234', '	Milena', 'Veselá', '651231/4321', '+420123426739', 'Brno', 'Vídeňská', '7');
 
-INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DATE_DISCH,DIAGNOSIS, DOCTOR_ID, DEPARTMENT)
-VALUES (1, TO_DATE('2019-03-25 20:03:44', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2019-03-30 20:03:44', 'YYYY-MM-DD HH24:MI:SS'),'Bolesti hlavy, migrena', 1, 'NEUR');
+INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DATE_DISCH, DIAGNOSIS, DOCTOR_ID, DEPARTMENT)
+VALUES (1, TO_DATE('2019-03-25 20:03:44', 'YYYY-MM-DD HH24:MI:SS'),
+        TO_DATE('2019-03-30 20:03:44', 'YYYY-MM-DD HH24:MI:SS'), 'Bolesti hlavy, migrena', 1, 'NEUR');
 INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DIAGNOSIS, DOCTOR_ID, DEPARTMENT)
 VALUES (2, TO_DATE('2022-04-13 07:04:55', 'YYYY-MM-DD HH24:MI:SS'), 'Žlučníkové kameny', 2, 'CHIR');
 
@@ -256,82 +257,95 @@ INSERT INTO DRUG_PRESCRIPTIONS (ABBREVIATION, ID_HOSPITALIZATION, APP_TIME, APP_
 VALUES ('NOSA', 2, 'Ráno,Večer', '2/den', '40mg');
 
 
---Select
---  Dva dotazy využívající spojení dvou tabulek (1,2)
+-- SELECT
+
+-- 2 requests with 2 tables
 
 /**
- *Otazka: Na kolika odděleních pracuje lékař s rodným číslem
- *Vyuzite: //todo
+  Who is the manager of the NEUR department
 */
-SELECT COUNT(abbreviation) AS count_departments
-FROM EMPLOYEES E JOIN DOCTORS_DEPARTMENTS DD ON E.ID = DD.doctor_id
-WHERE E.BIRTH_NUMBER = '630329/0015'
-GROUP BY E.ID;
+SELECT first_name AS jmeno, family_name AS prjimeni, birth_number AS rodne_cislo
+FROM EMPLOYEES E
+         JOIN DEPARTMENTS D ON E.ID = D.MANAGER_ID
+WHERE D.abbreviation = 'NEUR';
 
 /**
- *Otazka: Seznam hospitalizací pacienta s rodným číslem (Jméno, Příjmení, Datum, Diagnóza, Zkratka oddělení)
- *Vyuzite: Zjistit, jakou nemoc pacient měl a kdy
-*/
-SELECT first_name AS jmeno, family_name AS prijmeni,date_hosp as data, diagnosis as diagnos, department as oddelni
-FROM PATIENTS P JOIN HOSPITALIZATIONS H ON P.ID = H.PATIENT_ID
+  Hospitalizations of the patient with the birth number "481016/123"
+ */
+SELECT first_name AS jmeno, family_name AS prijmeni, date_hosp as datum, diagnosis as diagnoza, department as oddeleni
+FROM PATIENTS P
+         JOIN HOSPITALIZATIONS H ON P.ID = H.PATIENT_ID
 WHERE P.BIRTH_NUMBER = '481016/123';
 
 
--- Jeden využívající spojení tří tabulek (3)
+-- 1 request with 3 tables
 
-/**
- *Otazka: Jaké vyšetření absolvoval pacient s rodným číslem, ktery byl hospitalizován (datum) (Jméno, Příjmení, Datum, Nazev, Popis)
- *Vyuzite: Seznamte se s protokoly vyšetření pacienta. Například až bude pacient znovu hospitalizován, porovnejte výsledky.
-*/
-SELECT first_name AS jmeno, family_name as prijmen,date_inspect as data , ID.NAME AS nazev, description AS popis
-FROM PATIENTS P JOIN INSPECTIONS I ON P.id = I.ID_PATIENT JOIN INSPECTIONS_DESC ID ON I.ABBREVIATION = ID.ABBREVIATION
+/*
+ Which inspections had the patient with the birth number "651231/4321"
+ */
+SELECT first_name AS jmeno, family_name as prijmen, date_inspect as data, ID.NAME AS nazev, description AS popis
+FROM PATIENTS P
+         JOIN INSPECTIONS I ON P.id = I.ID_PATIENT
+         JOIN INSPECTIONS_DESC ID ON I.ABBREVIATION = ID.ABBREVIATION
 WHERE P.BIRTH_NUMBER = '651231/4321';
 
 /**
- *Otazka: Zobrazit všechny léky, které pacient během hospitalizace užívá (datum)
- *Vyuzite: Lze zkontrolovat, které léky lze přidat, aby byly slučutelné
+  Which drug prescriptions had the patient with the birth number '481016/123'
+  during the hospitalization started on 2019-03-25
  */
-SELECT abbreviation as nazev, app_time as doba_podovani, app_frequency as davka
-FROM PATIENTS P JOIN HOSPITALIZATIONS H ON P.ID = H.PATIENT_ID JOIN DRUG_PRESCRIPTIONS DP ON H.id = DP.id_hospitalization
-WHERE birth_number = '481016/123' AND TO_CHAR(date_hosp, 'YYYY-MM-DD') = '2019-03-25';
+SELECT abbreviation, app_time, app_frequency
+FROM PATIENTS P
+         JOIN HOSPITALIZATIONS H ON P.ID = H.PATIENT_ID
+         JOIN DRUG_PRESCRIPTIONS DP ON H.id = DP.id_hospitalization
+WHERE birth_number = '481016/123'
+  AND TO_CHAR(date_hosp, 'YYYY-MM-DD') = '2019-03-25';
 
--- Dva dotazy s klauzulí GROUP BY a agregační funkcí (4,5)
+-- 2 requests with GROUP BY (4,5)
 
 /**
- *Otazka: Kolik pacientů v nemocnice dostane lék s názvem (název_léku, číslo)
- *Vyuzite: Tyto informace lze použít k objednání léků do nemocnice.
+  How many prescriptions does every drug have
  */
-SELECT DP.abbreviation AS nazev_leku, COUNT(*) AS pocet
-FROM HOSPITALIZATIONS H JOIN DRUG_PRESCRIPTIONS DP ON H.id = DP.id_hospitalization
+SELECT DP.abbreviation AS drug_name, COUNT(*) AS pacient_number
+FROM HOSPITALIZATIONS H
+         JOIN DRUG_PRESCRIPTIONS DP ON H.id = DP.id_hospitalization
 WHERE date_disch is null
 GROUP BY DP.ABBREVIATION;
 
+ /*
+  How many beds are free in every department
+  */
+SELECT name, bed_number - patient_number AS free_bed_number
+FROM (
+         SELECT abbreviation, COUNT(patient_id) - COUNT(date_disch) AS patient_number
+         FROM HOSPITALIZATIONS H
+                  RIGHT JOIN DEPARTMENTS D ON H.department = D.abbreviation
+         GROUP BY abbreviation, date_disch
+     ) NP
+         RIGHT JOIN DEPARTMENTS DE ON NP.abbreviation = DE.ABBREVIATION;
+
+-- 1 request with EXIST (6)
+
 /**
- *Otazka: Kolik míst je k dispozici v každém oddělení
- *Vyuzite: Zjistěte, kolik míst je na oddělení k dispozici
+  List of patients who has a KRBI inspection on 2022-04-18
  */
-SELECT name AS nazev, bed_number - patient_number AS pocet_volnych_mist
-FROM    (
-            SELECT abbreviation,COUNT(patient_id) - COUNT(date_disch) AS patient_number
-            FROM HOSPITALIZATIONS H RIGHT JOIN DEPARTMENTS D ON H.department = D.abbreviation
-            GROUP BY abbreviation, date_disch
-        ) NP RIGHT JOIN DEPARTMENTS DE ON NP.abbreviation = DE.ABBREVIATION;
-
-
--- Jeden dotaz obsahující predikát EXISTS (6)
-
-/**
- *Otazka: Seznam pacientů objednaných na vyšetření(zkratka) na tenhle datum(datum)
- *Vyuzite: Diagnostik může zjistit, které pacienty bude mít na vyšetření
- */
-SELECT first_name AS jmeno, family_name AS prijmeni, department as oddeleni, diagnosis as diagnoza
-FROM PATIENTS JOIN HOSPITALIZATIONS ON PATIENTS.id = HOSPITALIZATIONS.patient_id
+SELECT first_name, family_name, department, diagnosis
+FROM PATIENTS
+         JOIN HOSPITALIZATIONS ON PATIENTS.id = HOSPITALIZATIONS.patient_id
 WHERE EXISTS(SELECT *
              FROM INSPECTIONS
-             WHERE TO_CHAR(date_inspect,'YYYY-MM-DD') ='2022-04-18' AND abbreviation = 'KRBI' AND PATIENTS.id = INSPECTIONS.id_patient
-    )
+             WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = '2022-04-18'
+               AND abbreviation = 'KRBI'
+               AND PATIENTS.id = INSPECTIONS.id_patient
+          );
 
--- Jeden dotaz s predikátem IN s vnořeným selectem (7)
---todo
+-- 1 request with IN (7)
 
-
+/**
+  List of drugs (abbreviation, name, manufacturer), prescribed to patients in 2019
+ */
+SELECT DISTINCT DRUGS.abbreviation, DRUGS.name, DRUGS.manufacturer
+FROM DRUGS
+        JOIN DRUG_PRESCRIPTIONS DP on DRUGS.abbreviation = DP.abbreviation
+WHERE DP.id_hospitalization IN (SELECT ID
+                             FROM HOSPITALIZATIONS
+                             WHERE TO_CHAR(date_hosp, 'YYYY') = '2019')
