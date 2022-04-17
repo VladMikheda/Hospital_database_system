@@ -263,16 +263,18 @@ VALUES ('NOSA', 2, 'Ráno,Večer', '2/den', '40mg');
 
 /**
   Who is the manager of the NEUR department
+  Example usage: give department management permissions to a specific doctor.
 */
-SELECT first_name AS jmeno, family_name AS prjimeni, birth_number AS rodne_cislo
+SELECT *
 FROM EMPLOYEES E
          JOIN DEPARTMENTS D ON E.ID = D.MANAGER_ID
 WHERE D.abbreviation = 'NEUR';
 
 /**
   Hospitalizations of the patient with the birth number "481016/123"
+  Example usage: medical history of a pacient.
  */
-SELECT first_name AS jmeno, family_name AS prijmeni, date_hosp as datum, diagnosis as diagnoza, department as oddeleni
+SELECT first_name, family_name, date_hosp, diagnosis, department
 FROM PATIENTS P
          JOIN HOSPITALIZATIONS H ON P.ID = H.PATIENT_ID
 WHERE P.BIRTH_NUMBER = '481016/123';
@@ -282,6 +284,7 @@ WHERE P.BIRTH_NUMBER = '481016/123';
 
 /*
  Which inspections had the patient with the birth number "651231/4321"
+ Example usage: page with inspection history of the patient
  */
 SELECT first_name AS jmeno, family_name as prijmen, date_inspect as data, ID.NAME AS nazev, description AS popis
 FROM PATIENTS P
@@ -292,6 +295,7 @@ WHERE P.BIRTH_NUMBER = '651231/4321';
 /**
   Which drug prescriptions had the patient with the birth number '481016/123'
   during the hospitalization started on 2019-03-25
+  Example usage: page with drug prescriptions during the specific hospitalization.
  */
 SELECT abbreviation, app_time, app_frequency
 FROM PATIENTS P
@@ -304,6 +308,7 @@ WHERE birth_number = '481016/123'
 
 /**
   How many prescriptions does every drug have
+  Example usage: how many drugs should the hospital order.
  */
 SELECT DP.abbreviation AS drug_name, COUNT(*) AS pacient_number
 FROM HOSPITALIZATIONS H
@@ -313,6 +318,7 @@ GROUP BY DP.ABBREVIATION;
 
  /*
   How many beds are free in every department
+  Example usage: how many patients can the hospital accept
   */
 SELECT name, bed_number - patient_number AS free_bed_number
 FROM (
@@ -327,6 +333,7 @@ FROM (
 
 /**
   List of patients who has a KRBI inspection on 2022-04-18
+  Example usage: day schedule for the doctor, who provides the specific inspection.
  */
 SELECT first_name, family_name, department, diagnosis
 FROM PATIENTS
@@ -342,6 +349,7 @@ WHERE EXISTS(SELECT *
 
 /**
   List of drugs (abbreviation, name, manufacturer), prescribed to patients in 2019
+  Example usages: can be used for audit purposes.
  */
 SELECT DISTINCT DRUGS.abbreviation, DRUGS.name, DRUGS.manufacturer
 FROM DRUGS
