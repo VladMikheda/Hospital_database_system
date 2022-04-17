@@ -265,7 +265,7 @@ VALUES ('NOSA', 2, 'Ráno,Večer', '2/den', '40mg');
   Who is the manager of the NEUR department
   Example usage: give department management permissions to a specific doctor.
 */
-SELECT *
+SELECT birth_number, first_name, family_name
 FROM EMPLOYEES E
          JOIN DEPARTMENTS D ON E.ID = D.MANAGER_ID
 WHERE D.abbreviation = 'NEUR';
@@ -286,7 +286,7 @@ WHERE P.BIRTH_NUMBER = '481016/123';
  Which inspections had the patient with the birth number "651231/4321"
  Example usage: page with inspection history of the patient
  */
-SELECT first_name AS jmeno, family_name as prijmen, date_inspect as data, ID.NAME AS nazev, description AS popis
+SELECT first_name, family_name, date_inspect as data, ID.NAME AS inspections_name, description AS description
 FROM PATIENTS P
          JOIN INSPECTIONS I ON P.id = I.ID_PATIENT
          JOIN INSPECTIONS_DESC ID ON I.ABBREVIATION = ID.ABBREVIATION
@@ -318,7 +318,7 @@ GROUP BY DP.ABBREVIATION;
 
  /*
   How many beds are free in every department
-  Example usage: how many patients can the hospital accept
+  Example usage: how many patients can the hospital department accept
   */
 SELECT name, bed_number - patient_number AS free_bed_number
 FROM (
