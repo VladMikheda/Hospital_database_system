@@ -156,12 +156,12 @@ CREATE TABLE INSPECTIONS_DESC
 CREATE TABLE INSPECTIONS
 (
     id           INTEGER GENERATED ALWAYS as IDENTITY (START WITH 1 INCREMENT BY 1) PRIMARY KEY,
-    id_patient   INTEGER NOT NULL,
+    id_hosp      INTEGER NOT NULL,
     abbreviation CHAR(4) NOT NULL,
     date_inspect DATE    NOT NULL,
     description  VARCHAR(255),
 
-    CONSTRAINT FK_id_patient_insp FOREIGN KEY (id_patient) REFERENCES PATIENTS (id),
+    CONSTRAINT FK_id_hosp_insp FOREIGN KEY (id_hosp) REFERENCES HOSPITALIZATIONS (id),
     CONSTRAINT FK_abbreviation_insp FOREIGN KEY (abbreviation) REFERENCES INSPECTIONS_DESC (abbreviation)
 );
 
@@ -182,12 +182,12 @@ CREATE TABLE DRUG_PRESCRIPTIONS
 (
     id            INTEGER GENERATED ALWAYS as IDENTITY (START WITH 1 INCREMENT BY 1) PRIMARY KEY,
     abbreviation  CHAR(4),
-    id_patient    INTEGER NOT NULL,
+    id_hosp       INTEGER NOT NULL,
     app_time      VARCHAR(50),
     app_frequency VARCHAR(50),
     dose          CHAR(6) NOT NULL,
 
-    CONSTRAINT FK_id_patient_drug FOREIGN KEY (id_patient) REFERENCES PATIENTS (id),
+    CONSTRAINT FK_id_hosp_dp FOREIGN KEY (id_hosp) REFERENCES HOSPITALIZATIONS (id),
     CONSTRAINT FK_abbreviation_drug FOREIGN KEY (abbreviation) REFERENCES DRUGS (abbreviation)
 );
 
