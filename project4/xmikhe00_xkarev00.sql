@@ -331,6 +331,15 @@ END;
 /
 -- endregion
 
+-- region VIEW
+
+CREATE MATERIALIZED VIEW PatientInspections REFRESH COMPLETE ON DEMAND START WITH sysdate NEXT SYSDATE+1/24 AS
+    SELECT P.family_name, P.first_name, P.birth_number, I.abbreviation
+    FROM INSPECTIONS I JOIN HOSPITALIZATIONS H ON I.id_hosp = H.id JOIN PATIENTS P ON P.id = H.patient_id
+    WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = TO_CHAR(SYSDATE,'YYYY-MM-DD');
+
+-- endregion
+
 -- region TABLE POPULATION
 
 INSERT INTO EMPLOYEES (BIRTH_NUMBER, FIRST_NAME, FAMILY_NAME)
@@ -437,14 +446,6 @@ GRANT EXECUTE ON CREATE_EMPLOYEE TO xkarev00;
 
 -- endregion
 
--- region VIEW
-
-CREATE MATERIALIZED VIEW PatientInspections REFRESH COMPLETE ON DEMAND START WITH sysdate NEXT SYSDATE+1/24 AS
-    SELECT P.family_name, P.first_name, P.birth_number, I.abbreviation
-    FROM INSPECTIONS I JOIN HOSPITALIZATIONS H ON I.id_hosp = H.id JOIN PATIENTS P ON P.id = H.patient_id
-    WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = TO_CHAR(SYSDATE,'YYYY-MM-DD');
-
--- endregion
 
 -- SELECT first_name, family_name, department, diagnosis
 --     FROM PATIENTS
