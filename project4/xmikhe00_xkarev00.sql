@@ -8,7 +8,7 @@
   *@author: Denis Karev xkarev00
  */
 
--- region TABLE DELETION
+----------------------------------------region TABLE DELETION-------------------------------------------
 
 DROP TABLE PATIENTS CASCADE CONSTRAINTS;
 DROP TABLE EMPLOYEES CASCADE CONSTRAINTS;
@@ -25,9 +25,12 @@ DROP TABLE INSPECTIONS CASCADE CONSTRAINTS;
 DROP TABLE DRUGS CASCADE CONSTRAINTS;
 DROP TABLE DRUG_PRESCRIPTIONS CASCADE CONSTRAINTS;
 DROP MATERIALIZED VIEW PATIENTINSPECTIONS;
--- endregion
+DROP MATERIALIZED VIEW COUNT_PATIENT;
 
--- region TABLE CREATION
+----------------------------------------------endregion-------------------------------------------------
+
+
+----------------------------------------region TABLE CREATION-------------------------------------------
 
 CREATE TABLE PATIENTS
 (
@@ -142,6 +145,7 @@ CREATE TABLE HOSPITALIZATIONS
 
     patient_id INTEGER NOT NULL,
     date_hosp  DATE    NOT NULL,
+    date_disch DATE,
     diagnosis  VARCHAR(255),
     doctor_id  INTEGER,
     department CHAR(4),
@@ -206,9 +210,9 @@ CREATE TABLE DRUG_PRESCRIPTIONS
     CONSTRAINT FK_abbreviation_drug FOREIGN KEY (abbreviation) REFERENCES DRUGS (abbreviation)
 );
 
--- endregion
+----------------------------------------------endregion-------------------------------------------------
 
--- region PROCEDURES (2 procedures)
+-----------------------------------region PROCEDURES (2 procedures)-------------------------------------
 
 /*
     For each hospitalization, where no doctor is assigned,
@@ -287,9 +291,10 @@ BEGIN
     END IF;
 END;
 /
--- endregion
 
--- region TRIGGERS (2 triggers)
+----------------------------------------------endregion-------------------------------------------------
+
+-------------------------------------region TRIGGERS (2 triggers)---------------------------------------
 
 CREATE OR REPLACE TRIGGER DEPARTMENT_MANAGER_HISTORY_T
     AFTER UPDATE OF MANAGER_ID
@@ -329,18 +334,10 @@ BEGIN
     VALUES (DOC_ID, OP_TYPE, DEP_VAL, OLD_VAL, SYSDATE);
 END;
 /
--- endregion
 
--- region VIEW
+----------------------------------------------endregion-------------------------------------------------
 
-CREATE MATERIALIZED VIEW PatientInspections REFRESH COMPLETE ON DEMAND START WITH sysdate NEXT SYSDATE+1/24 AS
-    SELECT P.family_name, P.first_name, P.birth_number, I.abbreviation
-    FROM INSPECTIONS I JOIN HOSPITALIZATIONS H ON I.id_hosp = H.id JOIN PATIENTS P ON P.id = H.patient_id
-    WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = TO_CHAR(SYSDATE,'YYYY-MM-DD');
-
--- endregion
-
--- region TABLE POPULATION
+---------------------------------------region TABLE POPULATION------------------------------------------
 
 INSERT INTO EMPLOYEES (BIRTH_NUMBER, FIRST_NAME, FAMILY_NAME)
 VALUES ('670114/1084', 'Adam', 'Novotny');
@@ -383,11 +380,15 @@ INSERT INTO PATIENTS (INSURANCE_NUM, FIRST_NAME, FAMILY_NAME, BIRTH_NUMBER, PHON
 VALUES ('1201411234', 'David', 'Černý', '481016/123', '+420123456789', 'Brno', 'Husitská', '23');
 INSERT INTO PATIENTS (INSURANCE_NUM, FIRST_NAME, FAMILY_NAME, BIRTH_NUMBER, PHONE_NUMBER, CITY, STREET, HOUSE)
 VALUES ('1205211234', '	Milena', 'Veselá', '651231/4321', '+420123426739', 'Brno', 'Vídeňská', '7');
+INSERT INTO PATIENTS (INSURANCE_NUM, FIRST_NAME, FAMILY_NAME, BIRTH_NUMBER, PHONE_NUMBER, CITY, STREET, HOUSE)
+VALUES ('1105211234', '	Milena', 'Veselá', '621231/4321', '+420123426737', 'Brno', 'Masarykova ', '10');
 
 INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DIAGNOSIS, DEPARTMENT)
 VALUES (1, TO_DATE('2019-03-25 20:03:44', 'YYYY-MM-DD HH24:MI:SS'), 'Bolesti hlavy, migrena', 'NEUR');
 INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DIAGNOSIS, DEPARTMENT)
 VALUES (2, TO_DATE('2020-04-21 07:04:55', 'YYYY-MM-DD HH24:MI:SS'), 'Žlučníkové kameny', 'CHIR');
+INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DIAGNOSIS, DEPARTMENT)
+VALUES (3, TO_DATE(TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'), 'YYYY-MM-DD HH24:MI:SS'), 'Žlučníkové kameny', 'CHIR');
 
 INSERT INTO NURSES_PATIENTS (NURSE_ID, ID_HOSPITALIZATION)
 VALUES (3, 1);
@@ -403,8 +404,8 @@ VALUES ('KRGL', 'Glukóza v krvi');
 
 INSERT INTO INSPECTIONS (ID_HOSP, ABBREVIATION, DATE_INSPECT, DESCRIPTION)
 VALUES (1, 'KRBI', TO_DATE('2019-03-25 21:12:23', 'YYYY-MM-DD HH24:MI:SS'), NULL);
--- INSERT INTO INSPECTIONS (ID_HOSP, ABBREVIATION, DATE_INSPECT, DESCRIPTION)
--- VALUES (1, 'KRBI', TO_DATE('2022-05-25 21:12:23', 'YYYY-MM-DD HH24:MI:SS'), NULL);
+INSERT INTO INSPECTIONS (ID_HOSP, ABBREVIATION, DATE_INSPECT, DESCRIPTION)
+VALUES (1, 'KRBI', TO_DATE('2022-04-28 21:12:23', 'YYYY-MM-DD HH24:MI:SS'), NULL);
 INSERT INTO INSPECTIONS (ID_HOSP, ABBREVIATION, DATE_INSPECT, DESCRIPTION)
 VALUES (2, 'UZBR', TO_DATE('2020-04-22 07:00:00', 'YYYY-MM-DD HH24:MI:SS'), NULL);
 INSERT INTO INSPECTIONS (ID_HOSP, ABBREVIATION, DATE_INSPECT, DESCRIPTION)
@@ -422,42 +423,9 @@ VALUES ('EREN', 1, 'Ráno', '1/den', '70mg');
 INSERT INTO DRUG_PRESCRIPTIONS (ABBREVIATION, ID_HOSP, APP_TIME, APP_FREQUENCY, DOSE)
 VALUES ('NOSA', 2, 'Ráno,Večer', '2/den', '40mg');
     
--- endregion
+----------------------------------------------endregion-------------------------------------------------
 
--- region Access rights
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON PATIENTS TO xkarev00;
-GRANT SELECT, INSERT, UPDATE, DELETE ON EMPLOYEES TO xkarev00;
-GRANT SELECT, INSERT, UPDATE, DELETE ON DOCTORS TO xkarev00;
-GRANT SELECT, INSERT, UPDATE, DELETE ON DEPARTMENTS TO xkarev00;
-GRANT SELECT, INSERT, UPDATE, DELETE ON DEPARTMENT_MANAGER_HISTORY TO xkarev00;
-GRANT SELECT, INSERT, UPDATE, DELETE ON NURSES TO xkarev00;
-GRANT SELECT, INSERT, UPDATE, DELETE ON DOCTORS_DEPARTMENTS TO xkarev00;
-GRANT SELECT, INSERT, UPDATE, DELETE ON DOCTOR_DEPARTMENT_HISTORY TO xkarev00;
-GRANT SELECT, INSERT, UPDATE, DELETE ON HOSPITALIZATIONS TO xkarev00;
-GRANT SELECT, INSERT, UPDATE, DELETE ON NURSES_PATIENTS TO xkarev00;
-GRANT SELECT, INSERT, UPDATE, DELETE ON INSPECTIONS_DESC TO xkarev00;
-GRANT SELECT, INSERT, UPDATE, DELETE ON INSPECTIONS TO xkarev00;
-GRANT SELECT, INSERT, UPDATE, DELETE ON DRUGS TO xkarev00;
-GRANT SELECT, INSERT, UPDATE, DELETE ON DRUG_PRESCRIPTIONS TO xkarev00;
-GRANT SELECT, INSERT, UPDATE, DELETE ON PatientInspections TO xkarev00;
-GRANT EXECUTE ON ASSIGN_DOCTORS TO xkarev00;
-GRANT EXECUTE ON CREATE_EMPLOYEE TO xkarev00;
-
--- endregion
-
-
--- SELECT first_name, family_name, department, diagnosis
---     FROM PATIENTS
---          JOIN HOSPITALIZATIONS ON PATIENTS.id = HOSPITALIZATIONS.patient_id
---     WHERE EXISTS(SELECT *
---              FROM INSPECTIONS
---              WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = '2019-03-25'
---                AND abbreviation = 'KRBI'
---                AND PATIENTS.id = INSPECTIONS.id_hosp
---           );
-
--- region TRIGGER DEMONSTRATION
+-------------------------------------region TRIGGER DEMONSTRATION---------------------------------------
 
 -- Table is empty
 SELECT *
@@ -489,17 +457,27 @@ WHERE DOCTOR_ID = 4;
 -- Table contains all types of actions
 SELECT *
 FROM DOCTOR_DEPARTMENT_HISTORY;
--- endregion
 
--- region PROCEDURE DEMONSTRATION
+----------------------------------------------endregion-------------------------------------------------
+
+------------------------------------region PROCEDURE DEMONSTRATION--------------------------------------
 
 -- Both IDs are NULL
 SELECT DOCTOR_ID
 FROM HOSPITALIZATIONS;
 
--- Run the procedure
+-- There are no employees with birth numbers 760425/1237 and 122222/1237.
+SELECT * FROM EMPLOYEES WHERE BIRTH_NUMBER = '760425/1237' OR BIRTH_NUMBER = '122222/1237';
+
+-- Run procedures
 BEGIN
     ASSIGN_DOCTORS();
+
+    CREATE_EMPLOYEE(TRUE, '760425/1237', 'John',
+                    'Dow', 'chirurg', 'NEUR','+420123456789', '1234@123.cz');
+
+    CREATE_EMPLOYEE(FALSE, '122222/1237', 'Jakub',
+                    'Cerny', 'sestra na oddělení', 'NEUR');
 END;
 /
 -- Both IDs are not NULL and contain a random doctor from the correct department
@@ -522,6 +500,7 @@ FROM EMPLOYEES E
          JOIN NURSES N on E.ID = N.ID
 WHERE BIRTH_NUMBER = '122222/1237';
 
+
 -- Both IDs are not NULL and contain a random doctor from the correct department
 SELECT H.ID, H.DOCTOR_ID, H.DEPARTMENT AS HOSP_DEPARTMENT, DD.ABBREVIATION AS DOC_DEPARTMENT
 FROM HOSPITALIZATIONS H
@@ -529,4 +508,133 @@ FROM HOSPITALIZATIONS H
 WHERE H.DEPARTMENT = DD.ABBREVIATION
 ORDER BY H.ID;
 
--- endregion
+----------------------------------------------endregion-------------------------------------------------
+
+----------------------------------------region Access rights--------------------------------------------
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON PATIENTS TO xkarev00;
+GRANT SELECT, INSERT, UPDATE, DELETE ON EMPLOYEES TO xkarev00;
+GRANT SELECT, INSERT, UPDATE, DELETE ON DOCTORS TO xkarev00;
+GRANT SELECT, INSERT, UPDATE, DELETE ON DEPARTMENTS TO xkarev00;
+GRANT SELECT, INSERT, UPDATE, DELETE ON DEPARTMENT_MANAGER_HISTORY TO xkarev00;
+GRANT SELECT, INSERT, UPDATE, DELETE ON NURSES TO xkarev00;
+GRANT SELECT, INSERT, UPDATE, DELETE ON DOCTORS_DEPARTMENTS TO xkarev00;
+GRANT SELECT, INSERT, UPDATE, DELETE ON DOCTOR_DEPARTMENT_HISTORY TO xkarev00;
+GRANT SELECT, INSERT, UPDATE, DELETE ON HOSPITALIZATIONS TO xkarev00;
+GRANT SELECT, INSERT, UPDATE, DELETE ON NURSES_PATIENTS TO xkarev00;
+GRANT SELECT, INSERT, UPDATE, DELETE ON INSPECTIONS_DESC TO xkarev00;
+GRANT SELECT, INSERT, UPDATE, DELETE ON INSPECTIONS TO xkarev00;
+GRANT SELECT, INSERT, UPDATE, DELETE ON DRUGS TO xkarev00;
+GRANT SELECT, INSERT, UPDATE, DELETE ON DRUG_PRESCRIPTIONS TO xkarev00;
+GRANT SELECT, INSERT, UPDATE, DELETE ON PatientInspections TO xkarev00;
+GRANT EXECUTE ON ASSIGN_DOCTORS TO xkarev00;
+GRANT EXECUTE ON CREATE_EMPLOYEE TO xkarev00;
+
+----------------------------------------------endregion-------------------------------------------------
+
+---------------------------------------------region VIEW------------------------------------------------
+
+-- the first view will show how many patients will be examined today
+CREATE MATERIALIZED VIEW PatientInspections BUILD IMMEDIATE REFRESH COMPLETE ON DEMAND AS
+    SELECT P.family_name, P.first_name, P.birth_number, I.abbreviation
+    FROM INSPECTIONS I JOIN HOSPITALIZATIONS H ON I.id_hosp = H.id JOIN PATIENTS P ON P.id = H.patient_id
+    WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = TO_CHAR(SYSDATE,'YYYY-MM-DD');
+
+-- refresh view (don't supports auto refresh)
+BEGIN
+    dbms_mview.refresh('PatientInspections', 'C');
+END;
+/
+
+-- functionality demonstration
+    -- create materialized view
+    -- select
+    SELECT *
+    FROM  PATIENTINSPECTIONS;
+    --add new info
+    INSERT INTO INSPECTIONS (ID_HOSP, ABBREVIATION, DATE_INSPECT, DESCRIPTION)
+    VALUES (3, 'KRBI', TO_DATE(TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'), 'YYYY-MM-DD HH24:MI:SS'), NULL);
+    -- select (materialized view not refresh)
+    SELECT *
+    FROM  PATIENTINSPECTIONS;
+    -- refresh MV
+    -- select (materialized view refresh)
+    SELECT *
+    FROM  PATIENTINSPECTIONS;
+--------------------------------------
+
+-- the second view displays the number of patients for the entire work of the hospital
+CREATE MATERIALIZED VIEW count_patient REFRESH COMPLETE ON COMMIT AS
+    SELECT COUNT(*) AS count_patient
+    FROM  PATIENTS;
+
+SELECT *
+FROM COUNT_PATIENT;
+
+----------------------------------------------endregion-------------------------------------------------
+
+CREATE INDEX patient_index ON HOSPITALIZATIONS(ID,date_disch);
+DROP INDEX patient_index;
+
+
+
+CREATE CLUSTER hosp_patients(
+    hosp_id         INTEGER,
+    patient_id      INTEGER,
+    family_name     VARCHAR(25),
+    first_name      VARCHAR(25),
+    birth_number    VARCHAR(11),
+    date_hosp       DATE,
+    date_disch      DATE,
+    diagnosis       VARCHAR(255),
+    department      CHAR(4)
+)
+SIZE  512;
+
+CREATE INDEX inspection_index ON CLUSTER hosp_patients;
+
+CREATE TABLE Patient_hosp (
+    hosp_id         ,
+    patient_id      ,
+    family_name     ,
+    first_name      ,
+    birth_number    ,
+    date_hosp       ,
+    date_disch      ,
+    diagnosis       ,
+    department
+)
+CLUSTER hosp_patients(hosp_id, patient_id, family_name, first_name, birth_number, date_hosp, date_disch,diagnosis, department)
+AS SELECT H.id, patient_id, family_name, first_name, birth_number, date_hosp, date_disch, diagnosis, department
+FROM HOSPITALIZATIONS H JOIN PATIENTS P ON H.PATIENT_ID = P.ID;
+
+CREATE INDEX cluster_index ON Patient_hosp(hosp_id);
+
+DROP CLUSTER hosp_patients;
+DROP TABLE  Patient_hosp;
+DROP INDEX inspection_index;
+
+CREATE INDEX inspection2_index ON INSPECTIONS(ID_HOSP,ABBREVIATION,DATE_INSPECT);
+CREATE INDEX hosp_index ON HOSPITALIZATIONS(PATIENT_ID);
+DROP INDEX inspection2_index;
+DROP INDEX hosp_index;
+
+
+SELECT first_name, family_name, department, diagnosis
+FROM Patient_hosp
+WHERE EXISTS(SELECT *
+             FROM INSPECTIONS
+             WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = '2022-04-18'
+               AND abbreviation = 'KRBI'
+               AND Patient_hosp.hosp_id = INSPECTIONS.id_hosp
+          );
+
+-- SELECT first_name, family_name, department, diagnosis
+-- FROM PATIENTS
+--          JOIN HOSPITALIZATIONS ON PATIENTS.id = HOSPITALIZATIONS.patient_id
+-- WHERE EXISTS(SELECT *
+--              FROM INSPECTIONS
+--              WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = '2022-04-18'
+--                AND abbreviation = 'KRBI'
+--                AND PATIENTS.id = INSPECTIONS.id_hosp
+--           );
