@@ -26,6 +26,8 @@ DROP TABLE DRUGS CASCADE CONSTRAINTS;
 DROP TABLE DRUG_PRESCRIPTIONS CASCADE CONSTRAINTS;
 DROP MATERIALIZED VIEW PATIENTINSPECTIONS;
 DROP MATERIALIZED VIEW COUNT_PATIENT;
+DROP PROCEDURE CREATE_EMPLOYEE;
+DROP PROCEDURE ASSIGN_DOCTORS;
 
 ----------------------------------------------endregion-------------------------------------------------
 
@@ -573,10 +575,32 @@ FROM COUNT_PATIENT;
 
 ----------------------------------------------endregion-------------------------------------------------
 
-CREATE INDEX patient_index ON HOSPITALIZATIONS(ID,date_disch);
-DROP INDEX patient_index;
+---------------------------------------------region INDEX------------------------------------------------
+
+/**
+  List of patients who has a KRBI inspection on 2022-04-18
+  Example usage: day schedule for the doctor, who provides the specific inspection.
+ */
+EXPLAIN PLAN FOR
+SELECT first_name, family_name, department, diagnosis
+FROM PATIENTS
+         JOIN HOSPITALIZATIONS ON PATIENTS.id = HOSPITALIZATIONS.patient_id
+WHERE EXISTS(SELECT *
+             FROM INSPECTIONS
+             WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = '2022-04-28'
+               AND abbreviation = 'KRBI'
+               AND HOSPITALIZATIONS.id = INSPECTIONS.id_hosp
+          );
+
+-- create an index for "inspection" that will join multiple columns to speed up searches
+CREATE INDEX inspection_index ON INSPECTIONS(DATE_INSPECT,ABBREVIATION,ID_HOSP);
+-- drop index
+DROP INDEX inspection_index;
 
 
+-- clustering (speed up select followed by slow update)
+-- create a cluster for the hospitalization and patients table
+-- (a fairly common query) which allows us to drop one join
 
 CREATE CLUSTER hosp_patients(
     hosp_id         INTEGER,
@@ -591,50 +615,50 @@ CREATE CLUSTER hosp_patients(
 )
 SIZE  512;
 
-CREATE INDEX inspection_index ON CLUSTER hosp_patients;
+--create cluster index
+CREATE INDEX inspection_cluster_index ON CLUSTER hosp_patients;
 
+--create table
 CREATE TABLE Patient_hosp (
-    hosp_id         ,
-    patient_id      ,
-    family_name     ,
-    first_name      ,
-    birth_number    ,
-    date_hosp       ,
-    date_disch      ,
-    diagnosis       ,
+    hosp_id,
+    patient_id,
+    family_name,
+    first_name,
+    birth_number,
+    date_hosp,
+    date_disch,
+    diagnosis,
     department
 )
-CLUSTER hosp_patients(hosp_id, patient_id, family_name, first_name, birth_number, date_hosp, date_disch,diagnosis, department)
-AS SELECT H.id, patient_id, family_name, first_name, birth_number, date_hosp, date_disch, diagnosis, department
+CLUSTER hosp_patients
+    (hosp_id,
+    patient_id,
+    family_name,
+    first_name,
+    birth_number,
+    date_hosp,
+    date_disch,
+    diagnosis,
+    department
+)AS SELECT H.id, patient_id, family_name, first_name, birth_number, date_hosp, date_disch, diagnosis, department
 FROM HOSPITALIZATIONS H JOIN PATIENTS P ON H.PATIENT_ID = P.ID;
-
 CREATE INDEX cluster_index ON Patient_hosp(hosp_id);
 
-DROP CLUSTER hosp_patients;
-DROP TABLE  Patient_hosp;
-DROP INDEX inspection_index;
 
-CREATE INDEX inspection2_index ON INSPECTIONS(ID_HOSP,ABBREVIATION,DATE_INSPECT);
-CREATE INDEX hosp_index ON HOSPITALIZATIONS(PATIENT_ID);
-DROP INDEX inspection2_index;
-DROP INDEX hosp_index;
-
-
+--select
 SELECT first_name, family_name, department, diagnosis
 FROM Patient_hosp
 WHERE EXISTS(SELECT *
              FROM INSPECTIONS
-             WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = '2022-04-18'
+             WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = '2022-04-28'
                AND abbreviation = 'KRBI'
                AND Patient_hosp.hosp_id = INSPECTIONS.id_hosp
           );
 
--- SELECT first_name, family_name, department, diagnosis
--- FROM PATIENTS
---          JOIN HOSPITALIZATIONS ON PATIENTS.id = HOSPITALIZATIONS.patient_id
--- WHERE EXISTS(SELECT *
---              FROM INSPECTIONS
---              WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = '2022-04-18'
---                AND abbreviation = 'KRBI'
---                AND PATIENTS.id = INSPECTIONS.id_hosp
---           );
+
+--drops indexes and table
+DROP INDEX CLUSTER_INDEX;
+DROP TABLE  Patient_hosp;
+DROP INDEX inspection_cluster_index;
+DROP CLUSTER hosp_patients;
+----------------------------------------------endregion-------------------------------------------------
