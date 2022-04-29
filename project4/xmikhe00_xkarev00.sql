@@ -228,31 +228,30 @@ CREATE OR REPLACE PROCEDURE ASSIGN_DOCTORS IS
     ASSIGNED_DOCTOR INTEGER;
     CURSOR C_HOSP IS
         SELECT ID, DOCTOR_ID, DEPARTMENT
-        FROM HOSPITALIZATIONS;
+        FROM HOSPITALIZATIONS
+        WHERE DOCTOR_ID IS NULL;
 BEGIN
     OPEN C_HOSP;
 
     LOOP
         FETCH C_HOSP INTO C_HOSP_ID, C_DOCTOR_ID, C_DEPARTMENT;
         EXIT WHEN C_HOSP%NOTFOUND;
-        IF C_DOCTOR_ID IS NULL THEN
-            SELECT DOCTOR_ID
-            INTO ASSIGNED_DOCTOR
-            FROM (SELECT *
-                  FROM DOCTORS
-                           JOIN DOCTORS_DEPARTMENTS DD on DOCTORS.ID = DD.DOCTOR_ID
-                  WHERE DD.ABBREVIATION = C_DEPARTMENT
-                  ORDER BY DBMS_RANDOM.RANDOM())
-            WHERE ROWNUM = 1;
+        SELECT DOCTOR_ID
+        INTO ASSIGNED_DOCTOR
+        FROM (SELECT *
+              FROM DOCTORS
+                       JOIN DOCTORS_DEPARTMENTS DD on DOCTORS.ID = DD.DOCTOR_ID
+              WHERE DD.ABBREVIATION = C_DEPARTMENT
+              ORDER BY DBMS_RANDOM.RANDOM())
+        WHERE ROWNUM = 1;
 
-            UPDATE HOSPITALIZATIONS SET DOCTOR_ID = ASSIGNED_DOCTOR WHERE ID = C_HOSP_ID;
-        END IF;
+        UPDATE HOSPITALIZATIONS SET DOCTOR_ID = ASSIGNED_DOCTOR WHERE ID = C_HOSP_ID;
     END LOOP;
 
     CLOSE C_HOSP;
 EXCEPTION
     WHEN OTHERS THEN
-        DBMS_OUTPUT.PUT_LINE('ERROR');
+        DBMS_OUTPUT.PUT_LINE('Unexpected exception in the ASSIGN_DOCTORS procedure.');
 END;
 /
 
@@ -291,6 +290,9 @@ BEGIN
         INSERT INTO NURSES(ID, SPECIALIZATION, DEPARTMENT)
         VALUES (EMPLOYEE_ID, IN_SPECIALIZATION, IN_DEPARTMENT);
     END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Unexpected exception in the CREATE_EMPLOYEE procedure.');
 END;
 /
 
@@ -387,11 +389,13 @@ INSERT INTO PATIENTS (INSURANCE_NUM, FIRST_NAME, FAMILY_NAME, BIRTH_NUMBER, PHON
 VALUES ('1105211234', '	Milena', 'Veselá', '621231/4321', '+420123426737', 'Brno', 'Masarykova ', '10');
 
 INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DATE_DISCH, DIAGNOSIS, DEPARTMENT)
-VALUES (1, TO_DATE('2019-03-25 20:03:44', 'YYYY-MM-DD HH24:MI:SS'),TO_DATE('2019-04-20 07:04:44', 'YYYY-MM-DD HH24:MI:SS'), 'Bolesti hlavy, migrena', 'NEUR');
+VALUES (1, TO_DATE('2019-03-25 20:03:44', 'YYYY-MM-DD HH24:MI:SS'),
+        TO_DATE('2019-04-20 07:04:44', 'YYYY-MM-DD HH24:MI:SS'), 'Bolesti hlavy, migrena', 'NEUR');
 INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DATE_DISCH, DIAGNOSIS, DEPARTMENT)
-VALUES (2, TO_DATE('2020-04-21 07:04:55', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2020-04-28 07:03:18', 'YYYY-MM-DD HH24:MI:SS'),'Žlučníkové kameny', 'CHIR');
+VALUES (2, TO_DATE('2020-04-21 07:04:55', 'YYYY-MM-DD HH24:MI:SS'),
+        TO_DATE('2020-04-28 07:03:18', 'YYYY-MM-DD HH24:MI:SS'), 'Žlučníkové kameny', 'CHIR');
 INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DIAGNOSIS, DEPARTMENT)
-VALUES (3, TO_DATE(TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'), 'YYYY-MM-DD HH24:MI:SS'), 'Žlučníkové kameny', 'CHIR');
+VALUES (3, TO_DATE(TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS'), 'YYYY-MM-DD HH24:MI:SS'), 'Žlučníkové kameny', 'CHIR');
 
 INSERT INTO NURSES_PATIENTS (NURSE_ID, ID_HOSPITALIZATION)
 VALUES (3, 1);
@@ -426,7 +430,7 @@ INSERT INTO DRUG_PRESCRIPTIONS (ABBREVIATION, ID_HOSP, APP_TIME, APP_FREQUENCY, 
 VALUES ('EREN', 1, 'Ráno', '1/den', '70mg');
 INSERT INTO DRUG_PRESCRIPTIONS (ABBREVIATION, ID_HOSP, APP_TIME, APP_FREQUENCY, DOSE)
 VALUES ('NOSA', 2, 'Ráno,Večer', '2/den', '40mg');
-    
+
 ----------------------------------------------endregion-------------------------------------------------
 
 -------------------------------------region TRIGGER DEMONSTRATION---------------------------------------
@@ -471,14 +475,17 @@ SELECT DOCTOR_ID
 FROM HOSPITALIZATIONS;
 
 -- There are no employees with birth numbers 760425/1237 and 122222/1237.
-SELECT * FROM EMPLOYEES WHERE BIRTH_NUMBER = '760425/1237' OR BIRTH_NUMBER = '122222/1237';
+SELECT *
+FROM EMPLOYEES
+WHERE BIRTH_NUMBER = '760425/1237'
+   OR BIRTH_NUMBER = '122222/1237';
 
 -- Run procedures
 BEGIN
     ASSIGN_DOCTORS();
 
     CREATE_EMPLOYEE(TRUE, '760425/1237', 'John',
-                    'Dow', 'chirurg', 'NEUR','+420123456789', '1234@123.cz');
+                    'Dow', 'chirurg', 'NEUR', '+420123456789', '1234@123.cz');
 
     CREATE_EMPLOYEE(FALSE, '122222/1237', 'Jakub',
                     'Cerny', 'sestra na oddělení', 'NEUR');
@@ -492,7 +499,14 @@ WHERE H.DEPARTMENT = DD.ABBREVIATION
 ORDER BY H.ID;
 
 -- There is a new doctor "John Dow"
-SELECT E.ID, E.BIRTH_NUMBER, E.FIRST_NAME, E.FAMILY_NAME, D.MEDICAL_SPEC, D.PHONE_NUMBER, D.EMAIL, DD.ABBREVIATION
+SELECT E.ID,
+       E.BIRTH_NUMBER,
+       E.FIRST_NAME,
+       E.FAMILY_NAME,
+       D.MEDICAL_SPEC,
+       D.PHONE_NUMBER,
+       D.EMAIL,
+       DD.ABBREVIATION
 FROM EMPLOYEES E
          JOIN DOCTORS D on E.ID = D.ID
          JOIN DOCTORS_DEPARTMENTS DD on D.ID = DD.DOCTOR_ID
@@ -539,9 +553,11 @@ GRANT EXECUTE ON CREATE_EMPLOYEE TO xkarev00;
 
 -- the first view will show how many patients will be examined today
 CREATE MATERIALIZED VIEW PatientInspections BUILD IMMEDIATE REFRESH COMPLETE ON DEMAND AS
-    SELECT P.family_name, P.first_name, P.birth_number, I.abbreviation
-    FROM INSPECTIONS I JOIN HOSPITALIZATIONS H ON I.id_hosp = H.id JOIN PATIENTS P ON P.id = H.patient_id
-    WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = TO_CHAR(SYSDATE,'YYYY-MM-DD');
+SELECT P.family_name, P.first_name, P.birth_number, I.abbreviation
+FROM XMIKHE00.INSPECTIONS I
+         JOIN XMIKHE00.HOSPITALIZATIONS H ON I.id_hosp = H.id
+         JOIN XMIKHE00.PATIENTS P ON P.id = H.patient_id
+WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = TO_CHAR(SYSDATE, 'YYYY-MM-DD');
 
 -- refresh view
 BEGIN
@@ -550,26 +566,26 @@ END;
 /
 
 -- functionality demonstration
-    -- create materialized view
-    -- select
-    SELECT *
-    FROM  PATIENTINSPECTIONS;
-    --add new info
-    INSERT INTO INSPECTIONS (ID_HOSP, ABBREVIATION, DATE_INSPECT, DESCRIPTION)
-    VALUES (3, 'KRBI', TO_DATE(TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'), 'YYYY-MM-DD HH24:MI:SS'), NULL);
-    -- select (materialized view not refresh)
-    SELECT *
-    FROM  PATIENTINSPECTIONS;
-    -- refresh MV
-    -- select (materialized view refresh)
-    SELECT *
-    FROM  PATIENTINSPECTIONS;
+-- create materialized view
+-- select
+SELECT *
+FROM PATIENTINSPECTIONS;
+--add new info
+INSERT INTO XMIKHE00.INSPECTIONS (ID_HOSP, ABBREVIATION, DATE_INSPECT, DESCRIPTION)
+VALUES (3, 'KRBI', TO_DATE(TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI:SS'), 'YYYY-MM-DD HH24:MI:SS'), NULL);
+-- select (materialized view not refresh)
+SELECT *
+FROM PATIENTINSPECTIONS;
+-- refresh MV
+-- select (materialized view refresh)
+SELECT *
+FROM PATIENTINSPECTIONS;
 --------------------------------------
 
 -- the second view displays the number of patients for the entire work of the hospital
-CREATE MATERIALIZED VIEW count_patient  BUILD IMMEDIATE REFRESH COMPLETE ON COMMIT AS
-    SELECT COUNT(*) AS count_patient
-    FROM  PATIENTS;
+CREATE MATERIALIZED VIEW count_patient BUILD IMMEDIATE REFRESH COMPLETE ON COMMIT AS
+SELECT COUNT(*) AS count_patient
+FROM PATIENTS;
 
 SELECT *
 FROM COUNT_PATIENT;
@@ -585,22 +601,24 @@ COMMIT;
   How many prescriptions does every drug have
   Example usage: how many drugs should the hospital order.
  */
-EXPLAIN PLAN SET STATEMENT_ID = 'table1'  INTO plan_table  FOR
+EXPLAIN PLAN SET STATEMENT_ID = 'table1' INTO plan_table FOR
 SELECT DP.abbreviation AS drug_name, COUNT(*) AS pacient_number
-FROM HOSPITALIZATIONS H JOIN DRUG_PRESCRIPTIONS DP ON H.id = DP.id_hosp
+FROM HOSPITALIZATIONS H
+         JOIN DRUG_PRESCRIPTIONS DP ON H.id = DP.id_hosp
 WHERE date_disch is null
 GROUP BY DP.ABBREVIATION;
 
 SELECT *
-FROM TABLE(DBMS_XPLAN.DISPLAY('PLAN_TABLE','table1'));
+FROM TABLE (DBMS_XPLAN.DISPLAY('PLAN_TABLE', 'table1'));
 
 -- create an index for "inspection" that will join multiple columns to speed up searches
-CREATE INDEX hosp_index ON HOSPITALIZATIONS(date_disch,id);
-CREATE INDEX drug_pre_index ON DRUG_PRESCRIPTIONS(ABBREVIATION,id_hosp);
+CREATE INDEX hosp_index ON HOSPITALIZATIONS (date_disch, id);
+CREATE INDEX drug_pre_index ON DRUG_PRESCRIPTIONS (ABBREVIATION, id_hosp);
 
-EXPLAIN PLAN SET STATEMENT_ID = 'table1'  INTO plan_table  FOR
+EXPLAIN PLAN SET STATEMENT_ID = 'table1' INTO plan_table FOR
 SELECT DP.abbreviation AS drug_name, COUNT(*) AS pacient_number
-FROM HOSPITALIZATIONS H JOIN DRUG_PRESCRIPTIONS DP ON H.id = DP.id_hosp
+FROM HOSPITALIZATIONS H
+         JOIN DRUG_PRESCRIPTIONS DP ON H.id = DP.id_hosp
 WHERE date_disch is null
 GROUP BY DP.ABBREVIATION;
 
