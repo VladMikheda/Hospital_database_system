@@ -384,14 +384,14 @@ VALUES ('1201411234', 'David', 'Černý', '481016/123', '+420123456789', 'Brno',
 INSERT INTO PATIENTS (INSURANCE_NUM, FIRST_NAME, FAMILY_NAME, BIRTH_NUMBER, PHONE_NUMBER, CITY, STREET, HOUSE)
 VALUES ('1205211234', '	Milena', 'Veselá', '651231/4321', '+420123426739', 'Brno', 'Vídeňská', '7');
 INSERT INTO PATIENTS (INSURANCE_NUM, FIRST_NAME, FAMILY_NAME, BIRTH_NUMBER, PHONE_NUMBER, CITY, STREET, HOUSE)
-VALUES ('1105211234', '	Milena', 'Veselá', '621231/4321', '+420123426737', 'Brno', 'Masarykova ', '10');
+VALUES ('1105211234', '	Milena', 'Mudrá', '621231/4321', '+420123426737', 'Brno', 'Masarykova ', '10');
 
 INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DATE_DISCH, DIAGNOSIS, DEPARTMENT)
 VALUES (1, TO_DATE('2019-03-25 20:03:44', 'YYYY-MM-DD HH24:MI:SS'),TO_DATE('2019-04-20 07:04:44', 'YYYY-MM-DD HH24:MI:SS'), 'Bolesti hlavy, migrena', 'NEUR');
 INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DATE_DISCH, DIAGNOSIS, DEPARTMENT)
 VALUES (2, TO_DATE('2020-04-21 07:04:55', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2020-04-28 07:03:18', 'YYYY-MM-DD HH24:MI:SS'),'Žlučníkové kameny', 'CHIR');
 INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DIAGNOSIS, DEPARTMENT)
-VALUES (3, TO_DATE(TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'), 'YYYY-MM-DD HH24:MI:SS'), 'Žlučníkové kameny', 'CHIR');
+VALUES (3, SYSDATE, 'Žlučníkové kameny', 'CHIR');
 
 INSERT INTO NURSES_PATIENTS (NURSE_ID, ID_HOSPITALIZATION)
 VALUES (3, 1);
@@ -543,11 +543,6 @@ CREATE MATERIALIZED VIEW PatientInspections BUILD IMMEDIATE REFRESH COMPLETE ON 
     FROM INSPECTIONS I JOIN HOSPITALIZATIONS H ON I.id_hosp = H.id JOIN PATIENTS P ON P.id = H.patient_id
     WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = TO_CHAR(SYSDATE,'YYYY-MM-DD');
 
--- refresh view
-BEGIN
-    dbms_mview.refresh('PatientInspections', 'C');
-END;
-/
 
 -- functionality demonstration
     -- create materialized view
@@ -556,11 +551,16 @@ END;
     FROM  PATIENTINSPECTIONS;
     --add new info
     INSERT INTO INSPECTIONS (ID_HOSP, ABBREVIATION, DATE_INSPECT, DESCRIPTION)
-    VALUES (3, 'KRBI', TO_DATE(TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'), 'YYYY-MM-DD HH24:MI:SS'), NULL);
+    VALUES (3, 'KRBI', SYSDATE, NULL);
     -- select (materialized view not refresh)
     SELECT *
     FROM  PATIENTINSPECTIONS;
     -- refresh MV
+    -- refresh view
+    BEGIN
+        dbms_mview.refresh('PatientInspections', 'C');
+    END;
+    /
     -- select (materialized view refresh)
     SELECT *
     FROM  PATIENTINSPECTIONS;
@@ -574,9 +574,16 @@ CREATE MATERIALIZED VIEW count_patient  BUILD IMMEDIATE REFRESH COMPLETE ON COMM
 SELECT *
 FROM COUNT_PATIENT;
 
+INSERT INTO PATIENTS (INSURANCE_NUM, FIRST_NAME, FAMILY_NAME, BIRTH_NUMBER, PHONE_NUMBER, CITY, STREET, HOUSE)
+VALUES ('1105211231', '	Alena', 'Dobrá', '611231/4321', '+420123423737', 'Brno', 'Masarykova ', '10');
+
+--commit
 COMMIT;
 
---GRANT SELECT, INSERT, UPDATE, DELETE ON PatientInspections TO xkarev00; //todo ???
+SELECT *
+FROM COUNT_PATIENT;
+
+
 ----------------------------------------------endregion-------------------------------------------------
 
 ---------------------------------------------region INDEX------------------------------------------------
@@ -597,6 +604,7 @@ FROM TABLE(DBMS_XPLAN.DISPLAY('PLAN_TABLE','table1'));
 -- create an index for "inspection" that will join multiple columns to speed up searches
 CREATE INDEX hosp_index ON HOSPITALIZATIONS(date_disch,id);
 CREATE INDEX drug_pre_index ON DRUG_PRESCRIPTIONS(ABBREVIATION,id_hosp);
+
 -- drop index
 DROP INDEX drug_pre_index;
 DROP INDEX hosp_index;
