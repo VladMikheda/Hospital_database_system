@@ -306,6 +306,7 @@ BEGIN
     INSERT INTO DEPARTMENT_MANAGER_HISTORY(DEPARTMENT, CHANGE_DATE, OLD_MANAGER, NEW_MANAGER)
     VALUES (:NEW.ABBREVIATION, SYSDATE, :OLD.MANAGER_ID, :NEW.MANAGER_ID);
 END;
+/
 
 CREATE OR REPLACE TRIGGER DOCTOR_DEPARTMENT_HISTORY
     AFTER INSERT OR
@@ -528,7 +529,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON INSPECTIONS_DESC TO xkarev00;
 GRANT SELECT, INSERT, UPDATE, DELETE ON INSPECTIONS TO xkarev00;
 GRANT SELECT, INSERT, UPDATE, DELETE ON DRUGS TO xkarev00;
 GRANT SELECT, INSERT, UPDATE, DELETE ON DRUG_PRESCRIPTIONS TO xkarev00;
-GRANT SELECT, INSERT, UPDATE, DELETE ON PatientInspections TO xkarev00;
 GRANT EXECUTE ON ASSIGN_DOCTORS TO xkarev00;
 GRANT EXECUTE ON CREATE_EMPLOYEE TO xkarev00;
 
@@ -573,6 +573,8 @@ CREATE MATERIALIZED VIEW count_patient REFRESH COMPLETE ON COMMIT AS
 SELECT *
 FROM COUNT_PATIENT;
 
+
+--GRANT SELECT, INSERT, UPDATE, DELETE ON PatientInspections TO xkarev00; //todo ???
 ----------------------------------------------endregion-------------------------------------------------
 
 ---------------------------------------------region INDEX------------------------------------------------
@@ -581,7 +583,7 @@ FROM COUNT_PATIENT;
   List of patients who has a KRBI inspection on 2022-04-18
   Example usage: day schedule for the doctor, who provides the specific inspection.
  */
-EXPLAIN PLAN FOR
+EXPLAIN PLAN SET STATEMENT_ID = 'table1'  INTO plan_table  FOR
 SELECT first_name, family_name, department, diagnosis
 FROM PATIENTS
          JOIN HOSPITALIZATIONS ON PATIENTS.id = HOSPITALIZATIONS.patient_id
@@ -589,14 +591,17 @@ WHERE EXISTS(SELECT *
              FROM INSPECTIONS
              WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = '2022-04-28'
                AND abbreviation = 'KRBI'
-               AND HOSPITALIZATIONS.id = INSPECTIONS.id_hosp
+               AND INSPECTIONS.id_hosp = HOSPITALIZATIONS.id
           );
 
+SELECT *
+FROM TABLE(DBMS_XPLAN.DISPLAY('PLAN_TABLE','table1'));
+
+
 -- create an index for "inspection" that will join multiple columns to speed up searches
-CREATE INDEX inspection_index ON INSPECTIONS(DATE_INSPECT,ABBREVIATION,ID_HOSP);
+CREATE INDEX inspection_index ON INSPECTIONS(ID_HOSP,DATE_INSPECT,ABBREVIATION);
 -- drop index
 DROP INDEX inspection_index;
-
 
 -- clustering (speed up select followed by slow update)
 -- create a cluster for the hospitalization and patients table
@@ -645,7 +650,7 @@ FROM HOSPITALIZATIONS H JOIN PATIENTS P ON H.PATIENT_ID = P.ID;
 CREATE INDEX cluster_index ON Patient_hosp(hosp_id);
 
 
---select
+EXPLAIN PLAN SET STATEMENT_ID = 'table2'  INTO plan_table  FOR
 SELECT first_name, family_name, department, diagnosis
 FROM Patient_hosp
 WHERE EXISTS(SELECT *
@@ -655,6 +660,9 @@ WHERE EXISTS(SELECT *
                AND Patient_hosp.hosp_id = INSPECTIONS.id_hosp
           );
 
+
+SELECT *
+FROM TABLE(DBMS_XPLAN.DISPLAY('PLAN_TABLE','table2'));
 
 --drops indexes and table
 DROP INDEX CLUSTER_INDEX;
