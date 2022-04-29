@@ -386,10 +386,10 @@ VALUES ('1205211234', '	Milena', 'Veselá', '651231/4321', '+420123426739', 'Brn
 INSERT INTO PATIENTS (INSURANCE_NUM, FIRST_NAME, FAMILY_NAME, BIRTH_NUMBER, PHONE_NUMBER, CITY, STREET, HOUSE)
 VALUES ('1105211234', '	Milena', 'Veselá', '621231/4321', '+420123426737', 'Brno', 'Masarykova ', '10');
 
-INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DIAGNOSIS, DEPARTMENT)
-VALUES (1, TO_DATE('2019-03-25 20:03:44', 'YYYY-MM-DD HH24:MI:SS'), 'Bolesti hlavy, migrena', 'NEUR');
-INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DIAGNOSIS, DEPARTMENT)
-VALUES (2, TO_DATE('2020-04-21 07:04:55', 'YYYY-MM-DD HH24:MI:SS'), 'Žlučníkové kameny', 'CHIR');
+INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DATE_DISCH, DIAGNOSIS, DEPARTMENT)
+VALUES (1, TO_DATE('2019-03-25 20:03:44', 'YYYY-MM-DD HH24:MI:SS'),TO_DATE('2019-04-20 07:04:44', 'YYYY-MM-DD HH24:MI:SS'), 'Bolesti hlavy, migrena', 'NEUR');
+INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DATE_DISCH, DIAGNOSIS, DEPARTMENT)
+VALUES (2, TO_DATE('2020-04-21 07:04:55', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('2020-04-28 07:03:18', 'YYYY-MM-DD HH24:MI:SS'),'Žlučníkové kameny', 'CHIR');
 INSERT INTO HOSPITALIZATIONS (PATIENT_ID, DATE_HOSP, DIAGNOSIS, DEPARTMENT)
 VALUES (3, TO_DATE(TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'), 'YYYY-MM-DD HH24:MI:SS'), 'Žlučníkové kameny', 'CHIR');
 
@@ -408,11 +408,12 @@ VALUES ('KRGL', 'Glukóza v krvi');
 INSERT INTO INSPECTIONS (ID_HOSP, ABBREVIATION, DATE_INSPECT, DESCRIPTION)
 VALUES (1, 'KRBI', TO_DATE('2019-03-25 21:12:23', 'YYYY-MM-DD HH24:MI:SS'), NULL);
 INSERT INTO INSPECTIONS (ID_HOSP, ABBREVIATION, DATE_INSPECT, DESCRIPTION)
-VALUES (1, 'KRBI', TO_DATE('2022-04-28 21:12:23', 'YYYY-MM-DD HH24:MI:SS'), NULL);
+VALUES (1, 'KRBI', TO_DATE('2019-03-26 21:12:23', 'YYYY-MM-DD HH24:MI:SS'), NULL);
 INSERT INTO INSPECTIONS (ID_HOSP, ABBREVIATION, DATE_INSPECT, DESCRIPTION)
 VALUES (2, 'UZBR', TO_DATE('2020-04-22 07:00:00', 'YYYY-MM-DD HH24:MI:SS'), NULL);
 INSERT INTO INSPECTIONS (ID_HOSP, ABBREVIATION, DATE_INSPECT, DESCRIPTION)
 VALUES (2, 'KRGL', TO_DATE('2020-04-22 08:00:00', 'YYYY-MM-DD HH24:MI:SS'), 'Hladina glukózy v krvi je normální');
+
 
 INSERT INTO DRUGS (ABBREVIATION, NAME, ACTIVE_DOSE, MAXIMAL_DOSE, APPLICATION_FORM, CONTRAINDICATIONS, STRENGTH,
                    MANUFACTURER)
@@ -542,7 +543,7 @@ CREATE MATERIALIZED VIEW PatientInspections BUILD IMMEDIATE REFRESH COMPLETE ON 
     FROM INSPECTIONS I JOIN HOSPITALIZATIONS H ON I.id_hosp = H.id JOIN PATIENTS P ON P.id = H.patient_id
     WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = TO_CHAR(SYSDATE,'YYYY-MM-DD');
 
--- refresh view (don't supports auto refresh)
+-- refresh view
 BEGIN
     dbms_mview.refresh('PatientInspections', 'C');
 END;
@@ -566,13 +567,14 @@ END;
 --------------------------------------
 
 -- the second view displays the number of patients for the entire work of the hospital
-CREATE MATERIALIZED VIEW count_patient REFRESH COMPLETE ON COMMIT AS
+CREATE MATERIALIZED VIEW count_patient  BUILD IMMEDIATE REFRESH COMPLETE ON COMMIT AS
     SELECT COUNT(*) AS count_patient
     FROM  PATIENTS;
 
 SELECT *
 FROM COUNT_PATIENT;
 
+COMMIT;
 
 --GRANT SELECT, INSERT, UPDATE, DELETE ON PatientInspections TO xkarev00; //todo ???
 ----------------------------------------------endregion-------------------------------------------------
@@ -580,93 +582,23 @@ FROM COUNT_PATIENT;
 ---------------------------------------------region INDEX------------------------------------------------
 
 /**
-  List of patients who has a KRBI inspection on 2022-04-18
-  Example usage: day schedule for the doctor, who provides the specific inspection.
+  How many prescriptions does every drug have
+  Example usage: how many drugs should the hospital order.
  */
 EXPLAIN PLAN SET STATEMENT_ID = 'table1'  INTO plan_table  FOR
-SELECT first_name, family_name, department, diagnosis
-FROM PATIENTS
-         JOIN HOSPITALIZATIONS ON PATIENTS.id = HOSPITALIZATIONS.patient_id
-WHERE EXISTS(SELECT *
-             FROM INSPECTIONS
-             WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = '2022-04-28'
-               AND abbreviation = 'KRBI'
-               AND INSPECTIONS.id_hosp = HOSPITALIZATIONS.id
-          );
+SELECT DP.abbreviation AS drug_name, COUNT(*) AS pacient_number
+FROM HOSPITALIZATIONS H JOIN DRUG_PRESCRIPTIONS DP ON H.id = DP.id_hosp
+WHERE date_disch is null
+GROUP BY DP.ABBREVIATION;
 
 SELECT *
 FROM TABLE(DBMS_XPLAN.DISPLAY('PLAN_TABLE','table1'));
 
-
 -- create an index for "inspection" that will join multiple columns to speed up searches
-CREATE INDEX inspection_index ON INSPECTIONS(ID_HOSP,DATE_INSPECT,ABBREVIATION);
+CREATE INDEX hosp_index ON HOSPITALIZATIONS(date_disch,id);
+CREATE INDEX drug_pre_index ON DRUG_PRESCRIPTIONS(ABBREVIATION,id_hosp);
 -- drop index
-DROP INDEX inspection_index;
+DROP INDEX drug_pre_index;
+DROP INDEX hosp_index;
 
--- clustering (speed up select followed by slow update)
--- create a cluster for the hospitalization and patients table
--- (a fairly common query) which allows us to drop one join
-
-CREATE CLUSTER hosp_patients(
-    hosp_id         INTEGER,
-    patient_id      INTEGER,
-    family_name     VARCHAR(25),
-    first_name      VARCHAR(25),
-    birth_number    VARCHAR(11),
-    date_hosp       DATE,
-    date_disch      DATE,
-    diagnosis       VARCHAR(255),
-    department      CHAR(4)
-)
-SIZE  512;
-
---create cluster index
-CREATE INDEX inspection_cluster_index ON CLUSTER hosp_patients;
-
---create table
-CREATE TABLE Patient_hosp (
-    hosp_id,
-    patient_id,
-    family_name,
-    first_name,
-    birth_number,
-    date_hosp,
-    date_disch,
-    diagnosis,
-    department
-)
-CLUSTER hosp_patients
-    (hosp_id,
-    patient_id,
-    family_name,
-    first_name,
-    birth_number,
-    date_hosp,
-    date_disch,
-    diagnosis,
-    department
-)AS SELECT H.id, patient_id, family_name, first_name, birth_number, date_hosp, date_disch, diagnosis, department
-FROM HOSPITALIZATIONS H JOIN PATIENTS P ON H.PATIENT_ID = P.ID;
-CREATE INDEX cluster_index ON Patient_hosp(hosp_id);
-
-
-EXPLAIN PLAN SET STATEMENT_ID = 'table2'  INTO plan_table  FOR
-SELECT first_name, family_name, department, diagnosis
-FROM Patient_hosp
-WHERE EXISTS(SELECT *
-             FROM INSPECTIONS
-             WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = '2022-04-28'
-               AND abbreviation = 'KRBI'
-               AND Patient_hosp.hosp_id = INSPECTIONS.id_hosp
-          );
-
-
-SELECT *
-FROM TABLE(DBMS_XPLAN.DISPLAY('PLAN_TABLE','table2'));
-
---drops indexes and table
-DROP INDEX CLUSTER_INDEX;
-DROP TABLE  Patient_hosp;
-DROP INDEX inspection_cluster_index;
-DROP CLUSTER hosp_patients;
 ----------------------------------------------endregion-------------------------------------------------
