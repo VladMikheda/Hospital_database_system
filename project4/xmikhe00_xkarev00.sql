@@ -605,6 +605,14 @@ FROM TABLE(DBMS_XPLAN.DISPLAY('PLAN_TABLE','table1'));
 CREATE INDEX hosp_index ON HOSPITALIZATIONS(date_disch,id);
 CREATE INDEX drug_pre_index ON DRUG_PRESCRIPTIONS(ABBREVIATION,id_hosp);
 
+
+EXPLAIN PLAN SET STATEMENT_ID = 'table1'  INTO plan_table  FOR
+SELECT DP.abbreviation AS drug_name, COUNT(*) AS pacient_number
+FROM HOSPITALIZATIONS H JOIN DRUG_PRESCRIPTIONS DP ON H.id = DP.id_hosp
+WHERE date_disch is null
+GROUP BY DP.ABBREVIATION;
+
+
 -- drop index
 DROP INDEX drug_pre_index;
 DROP INDEX hosp_index;
