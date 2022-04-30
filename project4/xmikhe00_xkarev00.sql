@@ -26,8 +26,8 @@ DROP TABLE DRUGS CASCADE CONSTRAINTS;
 DROP TABLE DRUG_PRESCRIPTIONS CASCADE CONSTRAINTS;
 DROP MATERIALIZED VIEW PATIENTINSPECTIONS;
 DROP MATERIALIZED VIEW COUNT_PATIENT;
-DROP PROCEDURE CREATE_EMPLOYEE;
-DROP PROCEDURE ASSIGN_DOCTORS;
+-- DROP PROCEDURE CREATE_EMPLOYEE;
+-- DROP PROCEDURE ASSIGN_DOCTORS;
 
 ----------------------------------------------endregion-------------------------------------------------
 
@@ -571,7 +571,6 @@ WHERE TO_CHAR(date_inspect, 'YYYY-MM-DD') = TO_CHAR(SYSDATE, 'YYYY-MM-DD');
     -- select (materialized view not refresh)
     SELECT *
     FROM  PATIENTINSPECTIONS;
-    -- refresh MV
     -- refresh view
     BEGIN
         dbms_mview.refresh('PatientInspections', 'C');
@@ -593,9 +592,14 @@ FROM COUNT_PATIENT;
 INSERT INTO PATIENTS (INSURANCE_NUM, FIRST_NAME, FAMILY_NAME, BIRTH_NUMBER, PHONE_NUMBER, CITY, STREET, HOUSE)
 VALUES ('1105211231', '	Alena', 'Dobrá', '611231/4321', '+420123423737', 'Brno', 'Masarykova ', '10');
 
+-- select (materialized view not refresh)
+SELECT *
+FROM COUNT_PATIENT;
+
 --commit
 COMMIT;
 
+ -- select (materialized view refresh)
 SELECT *
 FROM COUNT_PATIENT;
 
@@ -629,6 +633,8 @@ FROM HOSPITALIZATIONS H
 WHERE date_disch is null
 GROUP BY DP.ABBREVIATION;
 
+SELECT *
+FROM TABLE (DBMS_XPLAN.DISPLAY('PLAN_TABLE', 'table1'));
 
 -- drop index
 DROP INDEX drug_pre_index;
